@@ -12,12 +12,12 @@ from mailer import send_mail
 
 def main() -> None:
     # --- 環境変数の読み込み ---
-    token = os.environ["SWITCHBOT_TOKEN"]
-    secret = os.environ["SWITCHBOT_SECRET"]
-    device_id = os.environ["SWITCHBOT_DEVICE_ID"]
-    gmail_address = os.environ["GMAIL_ADDRESS"]
-    gmail_app_password = os.environ["GMAIL_APP_PASSWORD"]
-    mail_to = os.environ["MAIL_TO"]
+    token = os.environ["SWITCHBOT_TOKEN"].strip()
+    secret = os.environ["SWITCHBOT_SECRET"].strip()
+    device_id = os.environ["SWITCHBOT_DEVICE_ID"].strip()
+    gmail_address = os.environ["GMAIL_ADDRESS"].strip()
+    gmail_app_password = os.environ["GMAIL_APP_PASSWORD"].strip()
+    mail_to = os.environ["MAIL_TO"].strip()
 
     # --- SwitchBot API からデータ取得 ---
     status = get_device_status(token, secret, device_id)
