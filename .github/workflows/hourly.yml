@@ -3,8 +3,6 @@ name: Hourly Temperature Report
 on:
   schedule:
     - cron: "0 * * * *"
-    - cron: "20 * * * *"
-    - cron: "40 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -13,28 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get current UTC hour
-        id: hour
-        run: echo "value=$(date -u +%Y-%m-%dT%H)" >> "$GITHUB_OUTPUT"
-
-      - name: Check if already sent this hour
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/sent-this-hour
-          key: sent-${{ steps.hour.outputs.value }}
-
       - uses: actions/setup-python@v5
-        if: steps.cache.outputs.cache-hit != 'true'
         with:
           python-version: "3.11"
 
       - name: Install dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
         run: pip install -r requirements.txt
 
       - name: Run reporter
-        if: steps.cache.outputs.cache-hit != 'true'
         working-directory: src
         env:
           SWITCHBOT_TOKEN: ${{ secrets.SWITCHBOT_TOKEN }}
@@ -43,6 +27,4 @@ jobs:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: |
-          python main.py
-          echo "sent" > /tmp/sent-this-hour
+        run: python main.py
