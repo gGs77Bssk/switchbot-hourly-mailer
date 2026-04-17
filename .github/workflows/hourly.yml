@@ -3,7 +3,12 @@ name: Hourly Temperature Report
 on:
   schedule:
     - cron: "0 * * * *"
+    - cron: "20 * * * *"
+    - cron: "40 * * * *"
   workflow_dispatch:
+
+permissions:
+  actions: write
 
 jobs:
   report:
@@ -11,14 +16,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check deduplication
+        id: dedup
+        run: |
+          CURRENT_HOUR=$(date -u +%Y-%m-%dT%H)
+          LAST_SENT=$(gh variable get LAST_SENT_HOUR --repo "$GITHUB_REPOSITORY" 2>/dev/null || echo "none")
+          echo "current_hour=$CURRENT_HOUR" >> "$GITHUB_OUTPUT"
+          if [ "$CURRENT_HOUR" = "$LAST_SENT" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Already sent for hour $CURRENT_HOUR — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/setup-python@v5
+        if: steps.dedup.outputs.skip == 'false'
         with:
           python-version: "3.11"
 
       - name: Install dependencies
+        if: steps.dedup.outputs.skip == 'false'
         run: pip install -r requirements.txt
 
       - name: Run reporter
+        if: steps.dedup.outputs.skip == 'false'
         working-directory: src
         env:
           SWITCHBOT_TOKEN: ${{ secrets.SWITCHBOT_TOKEN }}
@@ -28,3 +51,12 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
         run: python main.py
+
+      - name: Update last sent hour
+        if: steps.dedup.outputs.skip == 'false'
+        run: |
+          gh variable set LAST_SENT_HOUR \
+            --body "${{ steps.dedup.outputs.current_hour }}" \
+            --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
