@@ -7,41 +7,34 @@ on:
     - cron: "40 * * * *"
   workflow_dispatch:
 
-permissions:
-  actions: write
-
 jobs:
   report:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check deduplication
-        id: dedup
-        run: |
-          CURRENT_HOUR=$(date -u +%Y-%m-%dT%H)
-          LAST_SENT=$(gh variable get LAST_SENT_HOUR --repo "$GITHUB_REPOSITORY" 2>/dev/null || echo "none")
-          echo "current_hour=$CURRENT_HOUR" >> "$GITHUB_OUTPUT"
-          if [ "$CURRENT_HOUR" = "$LAST_SENT" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Already sent for hour $CURRENT_HOUR — skipping."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get current UTC hour
+        id: hour
+        run: echo "value=$(date -u +%Y-%m-%dT%H)" >> "$GITHUB_OUTPUT"
+
+      - name: Check if already sent this hour
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/sent-this-hour
+          key: sent-${{ steps.hour.outputs.value }}
 
       - uses: actions/setup-python@v5
-        if: steps.dedup.outputs.skip == 'false'
+        if: steps.cache.outputs.cache-hit != 'true'
         with:
           python-version: "3.11"
 
       - name: Install dependencies
-        if: steps.dedup.outputs.skip == 'false'
+        if: steps.cache.outputs.cache-hit != 'true'
         run: pip install -r requirements.txt
 
       - name: Run reporter
-        if: steps.dedup.outputs.skip == 'false'
+        if: steps.cache.outputs.cache-hit != 'true'
         working-directory: src
         env:
           SWITCHBOT_TOKEN: ${{ secrets.SWITCHBOT_TOKEN }}
@@ -50,13 +43,6 @@ jobs:
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python main.py
-
-      - name: Update last sent hour
-        if: steps.dedup.outputs.skip == 'false'
         run: |
-          gh variable set LAST_SENT_HOUR \
-            --body "${{ steps.dedup.outputs.current_hour }}" \
-            --repo "$GITHUB_REPOSITORY"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          python main.py
+          echo "sent" > /tmp/sent-this-hour
