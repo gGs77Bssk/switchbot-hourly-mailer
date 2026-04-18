@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from switchbot_client import get_device_status
 from humidity import calc_absolute_humidity
 from mailer import send_mail
+from sheets_logger import log_to_sheet
 
 
 def main() -> None:
@@ -18,6 +19,7 @@ def main() -> None:
     gmail_address = os.environ["GMAIL_ADDRESS"].strip()
     gmail_app_password = os.environ["GMAIL_APP_PASSWORD"].strip()
     mail_to = os.environ["MAIL_TO"].strip()
+    sheet_webhook = os.environ.get("SHEET_WEBHOOK_URL", "").strip()
 
     # --- SwitchBot API からデータ取得 ---
     status = get_device_status(token, secret, device_id)
@@ -42,6 +44,18 @@ def main() -> None:
         f"\n"
         f"デバイス  : {device_name}\n"
     )
+
+    # --- スプレッドシートにログ記録 ---
+    if sheet_webhook:
+        log_to_sheet(
+            sheet_webhook,
+            ts,
+            temperature,
+            relative_humidity,
+            absolute_humidity,
+            device_name,
+        )
+        print("Logged to sheet")
 
     # --- メール送信 ---
     send_mail(gmail_address, gmail_app_password, mail_to, subject, body)

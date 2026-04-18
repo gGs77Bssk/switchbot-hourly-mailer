@@ -25,7 +25,6 @@ def send_mail(
     msg["From"] = gmail_address
     msg["To"] = to_address
 
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as smtp:
-        smtp.starttls()
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
         smtp.login(gmail_address, app_password)
         smtp.send_message(msg)
